@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VAMPIRE</title>
+<style>
+  body {
+    margin: 0;
+    font-family: "Poppins", sans-serif;
+    text-align: center;
+    background-color: #000;
+    overflow: hidden;
+    color: #fff;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  h1 {
+    font-size: 50px;
+    letter-spacing: 5px;
+    text-shadow: 0 0 20px red;
+    margin-bottom: 10px;
+  }
+
+  p {
+    margin-top: 0;
+    color: #aaa;
+    font-size: 14px;
+    letter-spacing: 1px;
+  }
+
+  .card {
+    background: rgba(0, 0, 0, 0.7);
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 0 15px red;
+    max-width: 350px;
+    z-index: 2;
+    position: relative;
+  }
+
+  input, select {
+    width: 80%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid red;
+    border-radius: 5px;
+    outline: none;
+    text-align: center;
+    background-color: #111;
+    color: #fff;
+  }
+
+  button {
+    background-color: red;
+    color: white;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: 0.3s;
+    font-weight: bold;
+    margin-top: 5px;
+  }
+
+  button:hover {
+    background-color: darkred;
+  }
+
+  .invitation {
+    display: none;
+    margin-top: 20px;
+    padding: 20px;
+    background: rgba(255, 0, 0, 0.2);
+    border: 2px solid red;
+    border-radius: 10px;
+    box-shadow: 0 0 10px red;
+  }
+
+  .vip-card {
+    background-color: #111;
+    border: 2px solid gold;
+    color: gold;
+    font-family: "Cursive", sans-serif;
+  }
+
+  .vip-title {
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+
+  .emoji {
+    position: absolute;
+    font-size: 2rem;
+    animation: float 10s linear infinite;
+    opacity: 0.8;
+  }
+
+  @keyframes float {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 0.8;}
+    100% { transform: translateY(-10vh) rotate(360deg); opacity: 0;}
+  }
+
+  /* small helpers */
+  .muted { color: #bbb; font-size: 13px; margin-top:6px; }
+  .buy-row { display:flex; gap:8px; justify-content:center; margin-top:10px; }
+</style>
+</head>
+<body>
+<h1>VAMPIRE</h1>
+<p>Power by ALJABERI</p>
+
+<div class="card" id="form">
+  <h2>🎃 Halloween Party Entry 🎃</h2>
+  <select id="language">
+    <option value="en">English</option>
+    <option value="ar">العربية</option>
+    <option value="es">Español</option>
+  </select><br>
+  <input type="text" id="name" placeholder="Enter your name" />
+  <input type="text" id="studentId" placeholder="Enter your student ID" />
+  <input type="password" id="password" placeholder="Enter invitation code" />
+  <button onclick="generateCard()">Submit</button>
+  <div class="muted">If your code is invalid you can buy one below.</div>
+</div>
+
+<div class="invitation" id="invitation">
+  <div id="cardContent" class="card">
+    <h2 id="inviteTitle">🎃 Halloween Party Invitation 🎃</h2>
+    <p id="invitationText"></p>
+    <p id="location">📍 Location: School Hall</p>
+    <p id="time">🕒 Time: 6:00 PM - 10:00 PM</p>
+    <p id="dress">🧛 Dress Code: Scary Costume</p>
+    <p id="owner">🎤 Party Owner: Aisha</p>
+  </div>
+</div>
+
+<div class="card" id="wrongPassword" style="display:none;">
+  <h2>❌ Access Denied ❌</h2>
+  <p id="wrongText">عذراً، لست مدعو</p>
+  <div class="buy-row">
+    <button onclick="buyPassword('regular')">Buy Regular ($5)</button>
+    <button onclick="buyPassword('vip')">Buy VIP</button>
+  </div>
+  <div class="muted">After purchase you'll get a code auto-filled into the form.</div>
+</div>
+
+<script>
+/*
+  Implementation notes (Arabic):
+  - على التحميل ننشئ قائمتين من الأكواد العشوائية:
+      regularCodes  (مثلاً 30 كود)  ==> أسعار $5
+      vipCodes      (مثلاً 30 كود)  ==> VIP
+  - عند التحقق نبحث إذا الكود موجود بأي قائمة ونقرر هل هو VIP أو Regular.
+  - عند الشراء نمنح المستخدم كود عشوائي من القائمة المختارة، ننسخه للحافظة، نملأ الحقل، ونرجّعه للواجهة الرئيسية.
+*/
+
+// توليد كود عشوائي (حروف كبيرة + أرقام)
+function genCode(length = 6) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // بدون حروف تشبه الأرقام
+  let out = '';
+  for (let i = 0; i < length; i++) {
+    out += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return out;
+}
+
+// بناء قائمتين من الأكواد عند بدء الصفحة
+const regularCodes = [];
+const vipCodes = [];
+(function generateLists() {
+  const regularCount = 30;
+  const vipCount = 30;
+  // for realism, include the original known codes inside lists (optional)
+  // ensure uniqueness
+  const setReg = new Set();
+  const setVip = new Set();
+
+  // add explicit "known" regular/vip codes for compatibility (kept for older tests)
+  setReg.add('123123'); // old code preserved
+  setVip.add('1111');   // old VIP preserved
+
+  while (setReg.size < regularCount) setReg.add(genCode(6));
+  while (setVip.size < vipCount) setVip.add(genCode(5));
+
+  setReg.forEach(c => regularCodes.push(c));
+  setVip.forEach(c => vipCodes.push(c));
+
+  // DEBUG: (uncomment to log lists)
+  // console.log('regularCodes', regularCodes);
+  // console.log('vipCodes', vipCodes);
+})();
+
+// Floating emojis
+const emojis = ["🎃","🦇","👻","🕸️","🕷️","💀","🧛"];
+for(let i=0;i<20;i++){
+  const emoji=document.createElement("div");
+  emoji.classList.add("emoji");
+  emoji.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+  emoji.style.left=Math.random()*100+"vw";
+  emoji.style.animationDuration=8+Math.random()*5+"s";
+  emoji.style.fontSize=1+Math.random()*2+"rem";
+  document.body.appendChild(emoji);
+}
+
+// utility: copy to clipboard (modern browsers)
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    // fallback: create temporary textarea
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch(e2){/*ignore*/} 
+    document.body.removeChild(ta);
+    return false;
+  }
+}
+
+// تحقق الباسورد واظهار البطاقة
+function generateCard(){
+  const name = document.getElementById("name").value.trim();
+  const id = document.getElementById("studentId").value.trim();
+  const password = document.getElementById("password").value.trim().toUpperCase();
+  const lang = document.getElementById("language").value;
+  const invite = document.getElementById("invitation");
+  const form = document.getElementById("form");
+  const wrong = document.getElementById("wrongPassword");
+  const cardContent = document.getElementById("cardContent");
+
+  // تأكد من الحقول
+  if (!name || !id) {
+    alert(lang==="ar"?"يرجى ملء جميع الحقول":"Please fill all fields!");
+    return;
+  }
+
+  // البحث في القوائم
+  const isRegular = regularCodes.includes(password);
+  const isVIP = vipCodes.includes(password);
+
+  if (!isRegular && !isVIP) {
+    // ليس كود صالح -> عرض رسالة شراء
+    form.style.display = "none";
+    invite.style.display = "none";
+    wrong.style.display = "block";
+    return;
+  }
+
+  const isVIPMode = isVIP;
+
+  // إعداد النصوص حسب اللغة
+  let message="", title="", loc="", time="", dress="", owner="🎤 Party Owner: Aisha";
+  if (lang==="en"){
+    title = isVIPMode ? "VIP" : "🎃 Halloween Party Invitation 🎃";
+    message = `Welcome ${name}! Your student ID ${id} has been approved for entry.`;
+    loc = "📍 Location: School Hall";
+    time = "🕒 Time: 6:00 PM - 10:00 PM";
+    dress = "🧛 Dress Code: Scary Costume";
+    owner = isVIPMode ? "🎤 Party Owner: Aisha (VIP)" : "🎤 Party Owner: Aisha";
+  } else if (lang==="ar"){
+    title = isVIPMode ? "VIP" : "🎃 دعوة لحفلة الهالوين 🎃";
+    message = `مرحباً ${name}! تم قبول رقم الطالب ${id} للدخول.`;
+    loc = "📍 الموقع: قاعة المدرسة";
+    time = "🕒 الوقت: من 6 مساءً إلى 10 مساءً";
+    dress = "🧛 الزي المطلوب: زي مخيف";
+    owner = isVIPMode ? "🎤 منظمة الحفلة: Aisha (VIP)" : "🎤 منظمة الحفلة: Aisha";
+  } else if (lang==="es"){
+    title = isVIPMode ? "VIP" : "🎃 Invitación a la fiesta de Halloween 🎃";
+    message = `¡Bienvenido ${name}! Tu número de estudiante ${id} ha sido aprobado para entrar.`;
+    loc = "📍 Lugar: Salón de la escuela";
+    time = "🕒 Hora: 6:00 PM - 10:00 PM";
+    dress = "🧛 Código de vestimenta: Disfraz aterrador";
+    owner = isVIPMode ? "🎤 Dueña de la fiesta: Aisha (VIP)" : "🎤 Dueña de la fiesta: Aisha";
+  }
+
+  // تحديث البطاقة واظهار الستايل VIP لو احتاج
+  document.getElementById("inviteTitle").innerHTML = title;
+  document.getElementById("invitationText").innerHTML = message;
+  document.getElementById("location").innerHTML = loc;
+  document.getElementById("time").innerHTML = time;
+  document.getElementById("dress").innerHTML = dress;
+  document.getElementById("owner").innerHTML = owner;
+
+  cardContent.className = isVIPMode ? "card vip-card" : "card";
+  form.style.display = "none";
+  wrong.style.display = "none";
+  invite.style.display = "block";
+}
+
+// عملية "شراء" رمز: نأخذ رمز من القائمة، نظهره ونملأ الحقل ونرجع الواجهة
+function buyPassword(type){
+  let code = null;
+  if(type === 'regular'){
+    // خذ كود عشوائي من regularCodes
+    code = regularCodes[Math.floor(Math.random() * regularCodes.length)];
+    alert(`تم شراء الباسورد العادي ($5)\nكودك: ${code}\nتم نسخه للحافظة تلقائياً`);
+  } else {
+    code = vipCodes[Math.floor(Math.random() * vipCodes.length)];
+    alert(`تم شراء VIP!\nكودك: ${code}\nتم نسخه للحافظة تلقائياً`);
+  }
+
+  // حاول نسخ الكود للحافظة، لكنه غير ضروري للعمل
+  copyToClipboard(code).catch(()=>{});
+
+  // ارجع للواجهة وعبّي الحقل بالباسورد الجديد
+  document.getElementById("form").style.display = "block";
+  document.getElementById("wrongPassword").style.display = "none";
+  document.getElementById("invitation").style.display = "none";
+
+  document.getElementById("password").value = code;
+  // optional: ترك الاسم/رقم الطالب كما هو لسهولة المحاولة مجدداً
+  // إذا تريد مسح الحقول بعد الشراء, الغي السطرين التاليين:
+  // document.getElementById("name").value = "";
+  // document.getElementById("studentId").value = "";
+}
+
+// للمطور: دوال مساعدة لعرض القوائم (للاختبار فقط)
+// function showLists(){ alert('regular: ' + regularCodes.join(',\\n') + '\\n\\nvip: ' + vipCodes.join(',\\n')); }
+</script>
+</body>
+</html>
